@@ -1,0 +1,2 @@
+UI: bouton tirer, force et angle
+UI: l'affichage seulement du bord et des trous
