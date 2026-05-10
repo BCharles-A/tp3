@@ -24,6 +24,8 @@ class LinkedList():
             node.prev = self.last
             self.last.next = node
             self.last = node
+            self.current = self.last
+            self.index = self.size
         self.size += 1
     
     def len(self):
@@ -124,7 +126,7 @@ class LinkedList():
 
         
     def step_up(self):
-        if self.index < self.size:
+        if self.index < self.size - 1:
             self.current = self.current.next
             self.index += 1
 
