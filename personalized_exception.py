@@ -1,0 +1,2 @@
+class InMotion(Exception):
+    pass
