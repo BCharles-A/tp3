@@ -189,7 +189,7 @@ class HUD:
                 self.display.delete(obj)
             del self.objects_show[:]
             history = self.round_history.get().get()
-            for i, obj in enumerate(self.objects):
+            for obj in self.objects:
                 self.objects_show.append(self.display.create_oval(history[obj.name][0]-obj.radius, history[obj.name][1]-obj.radius, history[obj.name][0]+obj.radius, history[obj.name][1]+obj.radius, fill=obj.color, outline="Black"))
             self.replay_label_update()
 

@@ -2,7 +2,7 @@
     "canvas_dimension" : [800, 400],
     "object_radius" : 10,
     "friction_value" : 0.5,
-    "min_speed" : 0.1,
+    "min_speed" : 0.01,
     "force_multiplier" : 10, 
     "time_step" : 1,
     "objects" : {
