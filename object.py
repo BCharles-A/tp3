@@ -35,8 +35,13 @@ class Physic:
         self.velocity = velocity
     
     def collision(self, other):
-        pass
-
+        n = self.position - other.position
+        if np.linalg.norm(n) < 2*self.radius:
+            #Orthogonal projection
+            v_n = np.dot(self.velocity-other.velocity, n)/np.dot(n, n) * n
+            #Energy transfer
+            self.velocity = self.velocity - v_n
+            other.velocity = other.velocity + v_n
 
 class Object(Physic):
     def __init__(self, velocity, position, radius, resistance, epsilon, name, color, pos_min, pos_max):
