@@ -82,10 +82,10 @@ class LinkedList():
             elif self.size-index < index:
                 self.current = self.last
                 self.index = self.size - 1
-                for i in range(self.size-index):
+                for i in range(self.size - index - 1):
                     self.step_down()
             elif self.index > index:
-                for i in range(self.index - index):
+                for i in range(self.index - index - 1):
                     self.step_down()
             else:
                 for i in range(index-self.index):
@@ -142,9 +142,3 @@ class LinkedList():
             element.append(str(temp.data))
             temp = temp.next
         return " <-> ".join(element)
-
-if __name__ == "__main__":
-    test = LinkedList()
-    for i in range(10):
-        test.append(i)
-    print(test.find(9))

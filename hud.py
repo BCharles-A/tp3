@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import filedialog
 import numpy as np
 import object
-import lkls
+import linked_list
 import personalized_exception as pe
 
 class HUD:
@@ -14,7 +14,7 @@ class HUD:
 
         #animation speed in ms
         self.time = self.current_setting["time_step"]
-        self.round_history = lkls.LinkedList()
+        self.round_history = linked_list.LinkedList()
 
         #visual elements
         #window
@@ -140,7 +140,7 @@ class HUD:
             self.objects_show.append(self.display.create_oval(obj.position[0]-obj.radius, obj.position[1]-obj.radius, obj.position[0]+obj.radius, obj.position[1]+obj.radius, fill=obj.color, outline="Black"))
 
         #Add the current round to the history
-        self.round_history.append(lkls.LinkedList())
+        self.round_history.append(linked_list.LinkedList())
         #Delete the pointer
         self.display.delete(self.arrow)
         #set the initial velocity of the main ball
@@ -262,7 +262,7 @@ class HUD:
         for obj in self.objects:
             self.objects_show.append(self.display.create_oval(obj.position[0]-obj.radius, obj.position[1]-obj.radius, obj.position[0]+obj.radius, obj.position[1]+obj.radius, fill=obj.color, outline="Black"))
         #reset history
-        self.round_history = lkls.LinkedList()
+        self.round_history = linked_list.LinkedList()
         #reset labels
         self.lab4.config(text="Tir : 0/0")
         self.lab5.config(text="Étape : 0/0")
@@ -336,9 +336,3 @@ class HUD:
     def launch(self):
         self.show()
         self.root.mainloop()
-
-if __name__ == "__main__":
-    test_o = object.Object(np.array([0,0]), np.array([50,50]), 10, 0.1, 0.1, "main", "white", np.array([30, 30]), np.array([470, 220]))
-    test_o2 = object.Object(np.array([0,0]), np.array([150,50]), 10, 0.1, 0.1, "red", "red", np.array([30, 30]), np.array([470, 220]))
-    test = HUD()
-    test.launch()
