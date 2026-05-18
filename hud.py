@@ -12,6 +12,8 @@ class HUD:
             self.default_setting = json.load(f)
         self.current_setting = self.default_setting
 
+        self.file_verification()
+
         #animation speed in ms
         self.time = self.current_setting["time_step"]
         self.round_history = linked_list.LinkedList()
@@ -27,7 +29,8 @@ class HUD:
         self.force_multiplier = self.current_setting["force_multiplier"]
         self.checkb_var = tk.BooleanVar()   #Bord
         self.checkb_var2 = tk.BooleanVar()  #Trous
-        self.checkb_var3 = tk.StringVar()      #N for replay step up/down
+        self.data_var = tk.StringVar()      #N for replay step up/down
+        self.data_var2 = tk.StringVar()     #Friction value
         self.border = []
         self.holes = []
         self.objects = []
@@ -40,10 +43,12 @@ class HUD:
         self.lab4 = tk.Label(self.root, text="Tir : 0/0", bg="gray20", fg="yellow", font=("Arial", 12))
         self.lab5 = tk.Label(self.root, text="Étape : 0/0", bg="gray20", fg="yellow", font=("Arial", 12))
         self.lab6 = tk.Label(self.root, text="N :", bg="gray20", fg="yellow", font=("Arial", 12))
+        self.lab7 = tk.Label(self.root, text="Coefficient de frottement :", bg="gray20", fg="yellow", font=("Arial", 12))
         #inputs
         self.spinbox_angle = tk.Spinbox(self.root, from_=0, to=360, bd=2, command=self.arrow_update)
         self.spinbox_force = tk.Spinbox(self.root, from_=0, to=100, bd=2, command=self.arrow_update, increment=10)
-        self.spinbox_n = tk.Spinbox(self.root, from_=1, to=100, bd=2, textvariable=self.checkb_var3)
+        self.spinbox_n = tk.Spinbox(self.root, from_=1, to=100, bd=2, textvariable=self.data_var)
+        self.spinbox_friction = tk.Spinbox(self.root, from_=0, to=1, bd=2, increment=0.1, textvariable=self.data_var2, command=self.friction_update)
         self.button_shot = tk.Button(self.root, text="Tirer", command=self.play, bg="yellow", bd=2)
         self.checkbox = tk.Checkbutton(self.root, text="Bord", bg="gray20", fg="white", variable=self.checkb_var, onvalue=True, offvalue=False, command=self.plan_update, )
         self.checkbox2 = tk.Checkbutton(self.root, text="Trous", bg="gray20", fg="white", variable=self.checkb_var2, onvalue=True, offvalue=False, command=self.plan_update)
@@ -64,8 +69,20 @@ class HUD:
         #state
         self.motion = False
     
+    def file_verification(self):
+        for element in ["canvas_dimension", "object_radius", "friction_value", "min_speed", "force_multiplier", "time_step", "objects", "restitution"]:
+            if not element in self.current_setting.keys():
+                raise pe.MissingKey(f"Le clef {element} n'est pas présent dans le fichier de configuration.")
+
     def load_objects(self):
-        side_thickness = 25
+        if self.current_setting["restitution"] > 1 or self.current_setting["friction_value"] < 0:
+            raise pe.RestitutionCoefNotInRange("La valeur du coefficient de restitution doit être entre 0 et 1.")
+        if self.current_setting["friction_value"] > 1 or self.current_setting["friction_value"] < 0:
+            raise pe.FrictionNotInRange("La valeur du coefficient de friction doit être entre 0 et 1.")
+        if self.current_setting["objects"] == {}:
+            raise pe.NoMainObject("La ball principale n'est pas présente.")
+        self.data_var2.set(str(self.current_setting["friction_value"]))
+        side_thickness = 15
         main_obj_data = self.current_setting["objects"]["main"]
         main_obj = object.Object(
                 velocity = np.array(main_obj_data["velocity_start"]),
@@ -73,23 +90,25 @@ class HUD:
                 radius = self.current_setting["object_radius"],
                 resistance = self.current_setting["friction_value"],
                 epsilon = self.current_setting["min_speed"],
-                name = main_obj_data["name"],
+                name = "main",
                 color = main_obj_data["color"],
                 pos_min = np.array([side_thickness, side_thickness]),
-                pos_max = np.array([value-side_thickness for value in self.current_setting["canvas_dimension"]])
+                pos_max = np.array([value - side_thickness for value in self.current_setting["canvas_dimension"]]),
+                restitution_coeff = self.current_setting["restitution"]
         )
         self.objects.append(main_obj)
-        for element in self.current_setting["objects"]["others"].values():
+        for i, element in enumerate(self.current_setting["objects"]["others"].values()):
             obj = object.Object(
                 velocity = np.array(element["velocity_start"]),
                 position = np.array(element["position_start"]),
                 radius = self.current_setting["object_radius"],
                 resistance = self.current_setting["friction_value"],
                 epsilon = self.current_setting["min_speed"],
-                name = element["name"],
+                name = i,
                 color = element["color"],
                 pos_min = np.array([side_thickness, side_thickness]),
-                pos_max = np.array([value-side_thickness for value in self.current_setting["canvas_dimension"]])
+                pos_max = np.array([value-side_thickness for value in self.current_setting["canvas_dimension"]]),
+                restitution_coeff = self.current_setting["restitution"]
             )
             self.objects.append(obj)
     
@@ -131,26 +150,28 @@ class HUD:
                                               fill="white", arrow="last", width=2)
 
     def play(self):
-        self.motion = True
-        #Reset the position of the objects
-        for obj in self.objects_show:
-            self.display.delete(obj)
-        del self.objects_show[:]
-        for obj in self.objects:
-            self.objects_show.append(self.display.create_oval(obj.position[0]-obj.radius, obj.position[1]-obj.radius, obj.position[0]+obj.radius, obj.position[1]+obj.radius, fill=obj.color, outline="Black"))
+        self.buttons_active(False)
+        if not self.motion:
+            self.motion = True
+            #Reset the position of the objects
+            for obj in self.objects_show:
+                self.display.delete(obj)
+            del self.objects_show[:]
+            for obj in self.objects:
+                self.objects_show.append(self.display.create_oval(obj.position[0]-obj.radius, obj.position[1]-obj.radius, obj.position[0]+obj.radius, obj.position[1]+obj.radius, fill=obj.color, outline="Black"))
 
-        #Add the current round to the history
-        self.round_history.append(linked_list.LinkedList())
-        #Delete the pointer
-        self.display.delete(self.arrow)
-        #set the initial velocity of the main ball
-        angle = self.spinbox_angle.get()
-        force = self.spinbox_force.get()
-        self.objects[0].set_velocity(np.array([self.force_multiplier*int(force)*np.cos(np.radians(int(angle)))*(self.time/1000), 
-                                               self.force_multiplier*int(force)*np.sin(np.radians(int(angle)))*(self.time/1000)
-                                               ]))
-        #Start the anumation
-        self.animation()
+            #Add the current round to the history
+            self.round_history.append(linked_list.LinkedList())
+            #Delete the pointer
+            self.display.delete(self.arrow)
+            #set the initial velocity of the main ball
+            angle = self.spinbox_angle.get()
+            force = self.spinbox_force.get()
+            self.objects[0].set_velocity(np.array([self.force_multiplier*int(force)*np.cos(np.radians(int(angle))), 
+                                                self.force_multiplier*int(force)*np.sin(np.radians(int(angle)))
+                                                ]))
+            #Start the anumation
+            self.animation()
     
     #Animate the movements of the objects
     def animation(self):
@@ -177,6 +198,34 @@ class HUD:
             self.arrow_update()
             self.replay_label_update()
             self.motion = False
+            self.button_shot.config(bg="yellow")
+            self.buttons_active(True)
+
+    def buttons_active(self, status):
+        if status:
+            self.button_configure.config(bg="darkgreen")
+            self.button_replay_down.config(bg="lightblue")
+            self.button_replay_down_n.config(bg="lightblue")
+            self.button_replay_first.config(bg="lightblue")
+            self.button_replay_last.config(bg="lightblue")
+            self.button_replay_up.config(bg="lightblue")
+            self.button_replay_up_n.config(bg="lightblue")
+            self.button_reset.config(bg="darkred")
+            self.button_round_down.config(bg="lightblue")
+            self.button_round_up.config(bg="lightblue")
+            self.button_shot.config(bg="yellow")
+        else:
+            self.button_configure.config(bg="grey")
+            self.button_replay_down.config(bg="grey")
+            self.button_replay_down_n.config(bg="grey")
+            self.button_replay_first.config(bg="grey")
+            self.button_replay_last.config(bg="grey")
+            self.button_replay_up.config(bg="grey")
+            self.button_replay_up_n.config(bg="grey")
+            self.button_reset.config(bg="grey")
+            self.button_round_down.config(bg="grey")
+            self.button_round_up.config(bg="grey")
+            self.button_shot.config(bg="grey")
 
     def replay_label_update(self):
         self.lab4.config(text=f"Tir : {self.round_history.index+1}/{self.round_history.len()}")
@@ -216,7 +265,7 @@ class HUD:
 
     def replay_step_up_n(self):
         if self.round_history.size != 0 and not self.motion:
-            increment = int(self.checkb_var3.get())
+            increment = int(self.data_var.get())
             if self.round_history.get().index - increment >= 0:
                 self.round_history.get().set_cursor(self.round_history.get().index - increment)
                 self.replay()
@@ -225,7 +274,7 @@ class HUD:
 
     def replay_step_down_n(self):
         if self.round_history.size != 0 and not self.motion:
-            increment = int(self.checkb_var3.get())
+            increment = int(self.data_var.get())
             if self.round_history.get().index + increment < self.round_history.get().size:
                 self.round_history.get().set_cursor(self.round_history.get().index + increment)
                 self.replay()
@@ -248,11 +297,26 @@ class HUD:
         except pe.InMotion as e:
             tk.messagebox.showerror("Erreur", e)
 
+    def friction_update(self):
+        base_friction = self.current_setting["friction_value"]
+        if not self.motion:
+            value = float(self.data_var2.get())
+            if value < 0 or value > 1:
+                tk.messagebox.showerror("Erreur", f"La valeur du fiction doit être entre 0 et 1")
+                self.data_var2.set(f"{base_friction}")
+            else:
+                for obj in self.objects:
+                    obj.resistance = value
+        else:
+            tk.messagebox.showerror("Erreur", f"La valeur du friction ne peut pas être changer pendant l'animation.")
+            self.data_var2.set(str(self.objects[0].resistance))
+
     def reset(self, setting = None, resize = False):
-        if self.motion:
-            raise pe.InMotion("Impossible de réinitialiser pendant un mouvement")
         if setting is not None:
             self.current_setting = setting
+        self.file_verification()
+        if self.motion:
+            raise pe.InMotion("Impossible de réinitialiser pendant un mouvement")
         #reset objects position
         for obj in self.objects_show:
             self.display.delete(obj)
@@ -278,18 +342,35 @@ class HUD:
 
     def configure(self):
         path = filedialog.askopenfilename()
-        try:
-            current_dimension = self.current_setting["canvas_dimension"]
-            with open(path, "r") as f:
-                self.current_setting = json.load(f)
-            self.reset(resize=current_dimension != self.current_setting["canvas_dimension"])
+        if path != "":
+            try:
+                current_dimension = self.current_setting["canvas_dimension"]
+                with open(path, "r") as f:
+                    self.current_setting = json.load(f)
+                self.reset(resize=current_dimension != self.current_setting["canvas_dimension"])
 
-        except pe.InMotion as e:
-            tk.messagebox.showerror("Erreur",e)
+            except pe.InMotion as e:
+                tk.messagebox.showerror("Erreur",e)
 
-        except Exception as e:
-            tk.messagebox.showerror("Erreur", f"{e}\nLes configrations seront réinitialisées aux valeurs par défaut")
-            self.reset(setting=self.default_setting, resize=True)
+            except pe.FrictionNotInRange as e:
+                tk.messagebox.showerror("Erreur du fichier de configuration",f"{e}\nVeuillez vérifier si la valeur du coefficient de friction\ncorrespond à l'intervalle permise.\nVeuillez vérifier si votre fichier de configuration est correctement formé.\nLes configrations seront réinitialisées aux valeurs par défaut.")
+                self.reset(setting=self.default_setting, resize=True)
+            
+            except pe.RestitutionCoefNotInRange as e:
+                tk.messagebox.showerror("Erreur du fichier de configuration",f"{e}\nVeuillez vérifier si la valeur du coefficient de restitutin\ncorrespond à l'intervalle permise.\nVeuillez vérifier si votre fichier de configuration est correctement formé.\nLes configrations seront réinitialisées aux valeurs par défaut.")
+                self.reset(setting=self.default_setting, resize=True)
+            
+            except pe.NoMainObject as e:
+                tk.messagebox.showerror("Erreur du fichier de configuration",f"{e}\nLe fichier de configuration doit contenir au moins la ball principale.\nVeuillez vérifier si votre fichier de configuration est correctement formé.\nLes configrations seront réinitialisées aux valeurs par défaut.")
+                self.reset(setting=self.default_setting, resize=True)
+
+            except pe.MissingKey as e:
+                tk.messagebox.showerror("Erreur du fichier de configuration",f"{e}\nVeuillez vérifier si votre fichier de configuration est correctement formé.\nLes configrations seront réinitialisées aux valeurs par défaut.")
+                self.reset(setting=self.default_setting, resize=True)
+
+            except Exception as e:
+                tk.messagebox.showerror("Erreur", f"{e}\nLes configrations seront réinitialisées aux valeurs par défaut.")
+                self.reset(setting=self.default_setting, resize=True)
 
 
     def show(self):
@@ -327,6 +408,9 @@ class HUD:
         #Additional buttons
         self.button_reset.place(x=10, y=y_canvas+220, height=30, width=100)
         self.button_configure.place(x=120, y=y_canvas+220, height=30, width=150)
+        #Friction
+        self.lab7.place(x=10, y=y_canvas+260, height=30, width=200)
+        self.spinbox_friction.place(x=210, y=y_canvas+260, height=30, width=100)
         #Objects show
         for element in self.objects:
             self.objects_show.append(self.display.create_oval(element.position[0]-element.radius, element.position[1]-element.radius, element.position[0]+element.radius, element.position[1]+element.radius, fill=element.color, outline="Black"))

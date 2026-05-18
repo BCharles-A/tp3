@@ -1,8 +1,9 @@
 {
     "canvas_dimension" : [800, 400],
     "object_radius" : 10,
+    "restitution" : 1,
     "friction_value" : 0.5,
-    "min_speed" : 0.01,
+    "min_speed" : 1,
     "force_multiplier" : 10, 
     "time_step" : 1,
     "objects" : {
@@ -14,6 +15,7 @@
             "color" : "white"},
 
         "others" : {
+            
             "object1" : {
                 "velocity_start" : [0,0],
                 "position_start" : [600,200],
@@ -22,13 +24,13 @@
             },
             "object2" : {
                 "velocity_start" : [0,0],
-                "position_start" : [618,210],
+                "position_start" : [618,215],
                 "name" : "object2",
                 "color" : "red"
             },
             "object3" : {
                 "velocity_start" : [0,0],
-                "position_start" : [618,190],
+                "position_start" : [618,185],
                 "name" : "object3",
                 "color" : "yellow"
             },
