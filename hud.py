@@ -28,6 +28,7 @@ class HUD:
         
         #Autres variables
         self.motion = False
+        self.position = True                #Si la position des balles sont à l'endroit du tir.
         self.force_multiplier = self.current_setting["force_multiplier"]
         self.checkb_var = tk.BooleanVar()   #Bord
         self.checkb_var.set(True)
@@ -161,6 +162,11 @@ class HUD:
 
     #Le pointeur
     def arrow_update(self):
+        #replacer la balle si celle-ci est mal placé
+        if not self.position:
+            self.replace()
+
+        #Modification de l'angle et du force du pointeur.
         angle = self.spinbox_angle.get()
         force = self.spinbox_force.get()
         self.display.delete(self.arrow)
@@ -169,18 +175,30 @@ class HUD:
                                               self.objects[0].position[1] + (25 + int(force)/5)*np.sin(np.radians(int(angle))), 
                                               fill="white", arrow="last", width=2)
 
+
+    def replace(self):
+        self.position = True
+        self.button_shot.config(text="Tirer", bg="yellow", fg="black")
+        for obj in self.objects_show:
+                self.display.delete(obj)
+        del self.objects_show[:]
+        for obj in self.objects:
+                self.objects_show.append(self.display.create_oval(obj.position[0]-obj.radius, 
+                                                                  obj.position[1]-obj.radius, 
+                                                                  obj.position[0]+obj.radius, 
+                                                                  obj.position[1]+obj.radius, 
+                                                                  fill=obj.color, 
+                                                                  outline="Black"))
+    
+    
     def play(self):
         #Si l'animation est en cours, le boutton tirer ne fera rien.
-        if not self.motion:
+        if self.position and not self.motion :
+            #Replacer les balls à aux positions initiales si la balle n'est pas bien placé.
+
             #Rendre les boutons gris
             self.buttons_active(False)
             self.motion = True
-            #Replacer les balls à aux positions initiales.
-            for obj in self.objects_show:
-                self.display.delete(obj)
-            del self.objects_show[:]
-            for obj in self.objects:
-                self.objects_show.append(self.display.create_oval(obj.position[0]-obj.radius, obj.position[1]-obj.radius, obj.position[0]+obj.radius, obj.position[1]+obj.radius, fill=obj.color, outline="Black"))
 
             #Ajouter une autre tire
             self.round_history.append(linked_list.LinkedList())
@@ -196,6 +214,8 @@ class HUD:
                                                 ]))
             #commencer l'animation
             self.animation()
+        elif not self.position:
+            self.arrow_update()
     
 
     def animation(self):
@@ -268,6 +288,10 @@ class HUD:
     def replay(self):
         #Mettre les balles aux endroits donnés pendant la recherche dans l'historique.
         if not self.motion:
+            #Changer le boutton tirer en remise en position si nécessaire
+            if self.position:
+                self.button_shot.config(text="Position du Tir", bg="darkblue", fg="white")
+                self.position = False
             #Supression des balls présentes et du pointeur
             self.display.delete(self.arrow)
             for obj in self.objects_show:
@@ -328,7 +352,6 @@ class HUD:
         if self.round_history.size != 0 and not self.motion:
             self.round_history.get().set_cursor(self.round_history.get().size - 1)
             self.replay()
-            self.arrow_update()
 
 
     def replay_step_up_n(self):
