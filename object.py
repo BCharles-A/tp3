@@ -11,11 +11,19 @@ class Physic:
         self.pos_max = pos_max - np.array([radius, radius])
         self.restitution_coeff = restitution_coeff
 
+
     def move(self, time):
+        #Friction
         self.velocity = self.velocity * (1 - self.resistance * (time/1000))
+
+        #Nouvelle position
         self.position = self.position + self.velocity * (time/1000)
+
+        #Mettre la vitesse à zéro si celle-ci est négligeable
         if np.linalg.norm(self.velocity) < self.epsilon:
             self.velocity = np.array([0, 0])
+
+        #Détection des bords
         if np.any(self.position < self.pos_min):
             if self.position[0] < self.pos_min[0]:
                 n = np.array([1, 0])
@@ -37,24 +45,31 @@ class Physic:
             self.velocity = self.velocity * self.restitution_coeff
         return self.position
     
+
     def set_velocity(self, velocity):
+        #Modifier la vitesse initiale
         self.velocity = velocity
     
+
     def collision(self, other):
+        #Détecter la colision
         n = self.position - other.position
         if np.linalg.norm(n) < 2*self.radius:
-            #Orthogonal projection
+            #Projection orthogonal
             v_n = np.dot(self.velocity-other.velocity, n)/np.dot(n, n) * n
-            #Energy transfer
+
+            #Transfer d'énergie
             v_n = (1+self.restitution_coeff)/2 * v_n
             self.velocity = self.velocity - v_n
             other.velocity = other.velocity + v_n
+
 
 class Object(Physic):
     def __init__(self, velocity, position, radius, resistance, epsilon, name, color, pos_min, pos_max, restitution_coeff):
         super().__init__(velocity, position, radius, resistance, epsilon, pos_min, pos_max, restitution_coeff)
         self.name = name
         self.color = color
+
 
     def move(self, time):
         return self.name, super().move(time)

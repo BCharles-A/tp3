@@ -7,11 +7,13 @@ class App:
         self.default_path = "setting_default.json"
         self.main = None
     
+    
     def redefine_path(self):
         file_path = tk.filedialog.askopenfilename(title="Select a configuration file", filetypes=[("JSON files", "*.json")])
         if file_path != "":
             self.default_path = file_path
             self.run()
+
 
     def run(self):
         try:
@@ -41,6 +43,7 @@ class App:
         except Exception as e:
             tk.messagebox.showerror("Erreur", f"Une erreur inattendue s'est produite pendant l'initialisation: {e}\nVeuillez vérifier la légibilité du programme.")
             self.redefine_path()
+
 
 if __name__ == "__main__":
     app = App()

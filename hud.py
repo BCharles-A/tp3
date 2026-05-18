@@ -8,26 +8,29 @@ import personalized_exception as pe
 
 class HUD:
     def __init__(self, path_default = "setting_default.json"):
+        #Lecture du fichier de configuration
         with open(path_default, "r") as f:
             self.default_setting = json.load(f)
         self.current_setting = self.default_setting
-
+        #Vérifier si le fichier est bien formé (si les clefs du dictionnaire sont présents.)
         self.file_verification()
-
-        #animation speed in ms
+        
+        #Création des variables avec valeurs
         self.time = self.current_setting["time_step"]
         self.round_history = linked_list.LinkedList()
 
-        #visual elements
-        #window
+        #Éléments visuelles
+        #Fenêtre et Canvas
         self.root = tk.Tk()
         self.root.geometry(f"{self.current_setting['canvas_dimension'][0]}x{self.current_setting['canvas_dimension'][0]}")
         self.root.config(bg="gray20")
         self.display = tk.Canvas(self.root, width=self.current_setting['canvas_dimension'][0], height=int(self.current_setting['canvas_dimension'][1]), bg="darkblue")
         
-        #variables
+        #Autres variables
+        self.motion = False
         self.force_multiplier = self.current_setting["force_multiplier"]
         self.checkb_var = tk.BooleanVar()   #Bord
+        self.checkb_var.set(True)
         self.checkb_var2 = tk.BooleanVar()  #Trous
         self.data_var = tk.StringVar()      #N for replay step up/down
         self.data_var2 = tk.StringVar()     #Friction value
@@ -44,7 +47,7 @@ class HUD:
         self.lab5 = tk.Label(self.root, text="Étape : 0/0", bg="gray20", fg="yellow", font=("Arial", 12))
         self.lab6 = tk.Label(self.root, text="N :", bg="gray20", fg="yellow", font=("Arial", 12))
         self.lab7 = tk.Label(self.root, text="Coefficient de frottement :", bg="gray20", fg="yellow", font=("Arial", 12))
-        #inputs
+        #Entrées
         self.spinbox_angle = tk.Spinbox(self.root, from_=0, to=360, bd=2, command=self.arrow_update)
         self.spinbox_force = tk.Spinbox(self.root, from_=0, to=100, bd=2, command=self.arrow_update, increment=10)
         self.spinbox_n = tk.Spinbox(self.root, from_=1, to=100, bd=2, textvariable=self.data_var)
@@ -62,26 +65,38 @@ class HUD:
         self.button_round_down = tk.Button(self.root, text="tir précédent", command=self.round_down, bg="lightblue", bd=2)
         self.button_reset = tk.Button(self.root, text="Réinitialiser", command=self.reset_command, bg="darkred", fg="white", bd=2)
         self.button_configure = tk.Button(self.root, text="Changer de configuration", command=self.configure, fg="white", bg="darkgreen", bd=2)
-        #pointer
+        #Pointeur de direction
         self.arrow = self.display.create_line(0,0,0,0, fill="white", arrow="last")
-        #Load the objects
+        #Chargement des balls et du bord
         self.load_objects()
-        #state
-        self.motion = False
+        self.plan_update()
     
     def file_verification(self):
-        for element in ["canvas_dimension", "object_radius", "friction_value", "min_speed", "force_multiplier", "time_step", "objects", "restitution"]:
+        #Vérifier si les éléments sont tous présents
+        for element in ["canvas_dimension", 
+                        "object_radius", 
+                        "friction_value", 
+                        "min_speed", 
+                        "force_multiplier", 
+                        "time_step", 
+                        "objects", 
+                        "restitution"]:
             if not element in self.current_setting.keys():
                 raise pe.MissingKey(f"Le clef {element} n'est pas présent dans le fichier de configuration.")
 
+
     def load_objects(self):
+        #Vérifier si les valeurs sont dans l'intervalle permise.
         if self.current_setting["restitution"] > 1 or self.current_setting["friction_value"] < 0:
             raise pe.RestitutionCoefNotInRange("La valeur du coefficient de restitution doit être entre 0 et 1.")
         if self.current_setting["friction_value"] > 1 or self.current_setting["friction_value"] < 0:
             raise pe.FrictionNotInRange("La valeur du coefficient de friction doit être entre 0 et 1.")
+        #Vérifier si la ball principale est présente.
         if self.current_setting["objects"] == {}:
             raise pe.NoMainObject("La ball principale n'est pas présente.")
+        #Mettre à jour le coefficient de friction affiché dans l'interface graphique.
         self.data_var2.set(str(self.current_setting["friction_value"]))
+        #Création de la ball principale.
         side_thickness = 15
         main_obj_data = self.current_setting["objects"]["main"]
         main_obj = object.Object(
@@ -96,6 +111,7 @@ class HUD:
                 pos_max = np.array([value - side_thickness for value in self.current_setting["canvas_dimension"]]),
                 restitution_coeff = self.current_setting["restitution"]
         )
+        #Création des balls secondaires. Les noms sont donnés par ordre.
         self.objects.append(main_obj)
         for i, element in enumerate(self.current_setting["objects"]["others"].values()):
             obj = object.Object(
@@ -112,12 +128,14 @@ class HUD:
             )
             self.objects.append(obj)
     
-    #Toggle the edges and the holes of the table
+    #Méthode pour afficher les trous et les bords.
     def plan_update(self):
+        #Définir les valeurs importantes
         x_middle = int(self.current_setting["canvas_dimension"][0]/2)
         x_max = self.current_setting["canvas_dimension"][0]
         y_max = self.current_setting["canvas_dimension"][1]
 
+        #Création du bord ou supression du bord
         bord_color = "darkgreen"
         if self.checkb_var.get():
             self.border.append(self.display.create_rectangle(0, 0, x_max, 15, fill=bord_color, outline=bord_color))
@@ -128,9 +146,11 @@ class HUD:
             for element in self.border:
                 self.display.delete(element)
             del self.border[:]
+        #supression des trous
         for element in self.holes:
             self.display.delete(element)
         del self.holes[:]
+        #Création des trous si checkb_var2 == True.
         if self.checkb_var2.get():
             self.holes.append(self.display.create_oval(8,8,34,34, fill="black", outline="black"))
             self.holes.append(self.display.create_oval(x_middle-13, 8, x_middle+13, 34, fill="black", outline="black"))
@@ -139,7 +159,7 @@ class HUD:
             self.holes.append(self.display.create_oval(x_middle-13, y_max-32, x_middle+13, y_max-6, fill="black", outline="black"))
             self.holes.append(self.display.create_oval(x_max-32, y_max-32, x_max-6, y_max-6, fill="black", outline="black"))
 
-    #Change the orientation and the length of the pointer
+    #Le pointeur
     def arrow_update(self):
         angle = self.spinbox_angle.get()
         force = self.spinbox_force.get()
@@ -150,32 +170,38 @@ class HUD:
                                               fill="white", arrow="last", width=2)
 
     def play(self):
-        self.buttons_active(False)
+        #Si l'animation est en cours, le boutton tirer ne fera rien.
         if not self.motion:
+            #Rendre les boutons gris
+            self.buttons_active(False)
             self.motion = True
-            #Reset the position of the objects
+            #Replacer les balls à aux positions initiales.
             for obj in self.objects_show:
                 self.display.delete(obj)
             del self.objects_show[:]
             for obj in self.objects:
                 self.objects_show.append(self.display.create_oval(obj.position[0]-obj.radius, obj.position[1]-obj.radius, obj.position[0]+obj.radius, obj.position[1]+obj.radius, fill=obj.color, outline="Black"))
 
-            #Add the current round to the history
+            #Ajouter une autre tire
             self.round_history.append(linked_list.LinkedList())
-            #Delete the pointer
+
+            #Supression du pointeur
             self.display.delete(self.arrow)
-            #set the initial velocity of the main ball
+
+            #modification de la vitesse initiale de la ball principale.
             angle = self.spinbox_angle.get()
             force = self.spinbox_force.get()
             self.objects[0].set_velocity(np.array([self.force_multiplier*int(force)*np.cos(np.radians(int(angle))), 
                                                 self.force_multiplier*int(force)*np.sin(np.radians(int(angle)))
                                                 ]))
-            #Start the anumation
+            #commencer l'animation
             self.animation()
     
-    #Animate the movements of the objects
+
     def animation(self):
+        #Historique des positions
         history = {}
+
         #Mouvement
         for i, obj in enumerate(self.objects):
             pos = obj.position
@@ -183,15 +209,18 @@ class HUD:
             self.display.move(self.objects_show[i], obj.position[0]-pos[0], obj.position[1]-pos[1])
             history[obj.name] = obj.position
         self.round_history.get().append(history)
-        #Calculating the total velocity of the objects
-        total_velocity = 0
-        for obj in self.objects:
-            total_velocity += np.linalg.norm(obj.velocity)
-        #Collision check
+
+        #Collision
         for i in range(len(self.objects) - 1):
             for j in range(i+1, len(self.objects)):
                 self.objects[i].collision(self.objects[j])
-        #Stop if all the objects are static then show the pointer
+
+        #Calcul du mouvement total de l'ensemble des balls
+        total_velocity = 0
+        for obj in self.objects:
+            total_velocity += np.linalg.norm(obj.velocity)
+
+        #Arrêter l'animation si aucune ball est en mouvement.
         if total_velocity > 0:
             self.root.after(self.time, self.animation)
         else:
@@ -201,7 +230,9 @@ class HUD:
             self.button_shot.config(bg="yellow")
             self.buttons_active(True)
 
+
     def buttons_active(self, status):
+        #Modifier la couleur des bouttons pour montrer s'il est possible de le cliquer.
         if status:
             self.button_configure.config(bg="darkgreen")
             self.button_replay_down.config(bg="lightblue")
@@ -227,79 +258,39 @@ class HUD:
             self.button_round_up.config(bg="grey")
             self.button_shot.config(bg="grey")
 
+
     def replay_label_update(self):
+        #Mettre à jour les indicateurs du tir et de l'étape pour l'historique des tirs.
         self.lab4.config(text=f"Tir : {self.round_history.index+1}/{self.round_history.len()}")
         self.lab5.config(text=f"Étape : {self.round_history.get().index+1}/{self.round_history.get().size}")
 
+
     def replay(self):
+        #Mettre les balles aux endroits donnés pendant la recherche dans l'historique.
         if not self.motion:
+            #Supression des balls présentes et du pointeur
             self.display.delete(self.arrow)
             for obj in self.objects_show:
                 self.display.delete(obj)
             del self.objects_show[:]
+            #Replacer les balls aux endroits
             history = self.round_history.get().get()
             for obj in self.objects:
-                self.objects_show.append(self.display.create_oval(history[obj.name][0]-obj.radius, history[obj.name][1]-obj.radius, history[obj.name][0]+obj.radius, history[obj.name][1]+obj.radius, fill=obj.color, outline="Black"))
+                self.objects_show.append(self.display.create_oval(history[obj.name][0]-obj.radius, 
+                                                                  history[obj.name][1]-obj.radius, 
+                                                                  history[obj.name][0]+obj.radius, 
+                                                                  history[obj.name][1]+obj.radius, 
+                                                                  fill=obj.color, 
+                                                                  outline="Black"))
+            #Mettre à jour la position dans l'historique
             self.replay_label_update()
 
-    def replay_first(self):
-        if self.round_history.size != 0 and not self.motion:
-            self.round_history.get().set_cursor(0)
-            self.replay()
-
-    def replay_step_up(self):
-        if self.round_history.size != 0 and not self.motion:
-            self.round_history.get().step_up()
-            self.replay()
-
-    def replay_step_down(self):
-        if self.round_history.size != 0 and not self.motion:
-            self.round_history.get().step_down()    
-            self.replay()
-
-    def replay_last(self):
-        if self.round_history.size != 0 and not self.motion:
-            self.round_history.get().set_cursor(self.round_history.get().size - 1)
-            self.replay()
-            self.arrow_update()
-
-    def replay_step_up_n(self):
-        if self.round_history.size != 0 and not self.motion:
-            increment = int(self.data_var.get())
-            if self.round_history.get().index - increment >= 0:
-                self.round_history.get().set_cursor(self.round_history.get().index - increment)
-                self.replay()
-            else:
-                self.replay_first()
-
-    def replay_step_down_n(self):
-        if self.round_history.size != 0 and not self.motion:
-            increment = int(self.data_var.get())
-            if self.round_history.get().index + increment < self.round_history.get().size:
-                self.round_history.get().set_cursor(self.round_history.get().index + increment)
-                self.replay()
-            else:
-                self.replay_last()
-
-    def round_up(self):
-        if self.round_history.size != 0 and not self.motion:
-            self.round_history.step_up()
-            self.replay()
-
-    def round_down(self):
-        if self.round_history.size != 0 and not self.motion:
-            self.round_history.step_down()
-            self.replay()
-    
-    def reset_command(self):
-        try:
-            self.reset()
-        except pe.InMotion as e:
-            tk.messagebox.showerror("Erreur", e)
 
     def friction_update(self):
-        base_friction = self.current_setting["friction_value"]
+        #Modification du friction à partir de l'interface graphique
+        #La friction peut seulement être modifier si les balles ne sont pas en mouvement
         if not self.motion:
+            base_friction = self.current_setting["friction_value"]
             value = float(self.data_var2.get())
             if value < 0 or value > 1:
                 tk.messagebox.showerror("Erreur", f"La valeur du fiction doit être entre 0 et 1")
@@ -311,13 +302,93 @@ class HUD:
             tk.messagebox.showerror("Erreur", f"La valeur du friction ne peut pas être changer pendant l'animation.")
             self.data_var2.set(str(self.objects[0].resistance))
 
+    def replay_first(self):
+        #Boutton |◀
+        if self.round_history.size != 0 and not self.motion:
+            self.round_history.get().set_cursor(0)
+            self.replay()
+
+
+    def replay_step_up(self):
+        #Boutton 1 ▶
+        if self.round_history.size != 0 and not self.motion:
+            self.round_history.get().step_up()
+            self.replay()
+
+
+    def replay_step_down(self):
+        #Boutton ◀ 1
+        if self.round_history.size != 0 and not self.motion:
+            self.round_history.get().step_down()    
+            self.replay()
+
+
+    def replay_last(self):
+        #Boutton ▶|
+        if self.round_history.size != 0 and not self.motion:
+            self.round_history.get().set_cursor(self.round_history.get().size - 1)
+            self.replay()
+            self.arrow_update()
+
+
+    def replay_step_up_n(self):
+        #Boutton ▶ n
+        if self.round_history.size != 0 and not self.motion:
+            increment = int(self.data_var.get())
+            if self.round_history.get().index - increment >= 0:
+                self.round_history.get().set_cursor(self.round_history.get().index - increment)
+                self.replay()
+            else:
+                self.replay_first()
+
+
+    def replay_step_down_n(self):
+        #Boutton n ◀
+        if self.round_history.size != 0 and not self.motion:
+            increment = int(self.data_var.get())
+            if self.round_history.get().index + increment < self.round_history.get().size:
+                self.round_history.get().set_cursor(self.round_history.get().index + increment)
+                self.replay()
+            else:
+                self.replay_last()
+
+
+    def round_up(self):
+        #Boutton prochain tir
+        if self.round_history.size != 0 and not self.motion:
+            self.round_history.step_up()
+            self.replay()
+
+
+    def round_down(self):
+        #Boutton tir précédent
+        if self.round_history.size != 0 and not self.motion:
+            self.round_history.step_down()
+            self.replay()
+    
+
+    def reset_command(self):
+        #Boutton réinitialisation
+        try:
+            self.reset()
+        except pe.InMotion as e:
+            tk.messagebox.showerror("Erreur", e)
+
+
     def reset(self, setting = None, resize = False):
+        #Changement de configuration selon un configuration donné
+        #Si une configuration est donné, la configuration actuelle est celle qui est donnée
         if setting is not None:
             self.current_setting = setting
+        
+        #Vérifier si la configuration est correcte.
         self.file_verification()
+
+        #La changement de configuration ne peut pas être faite quand les balles sont en mouvement.
         if self.motion:
             raise pe.InMotion("Impossible de réinitialiser pendant un mouvement")
-        #reset objects position
+        
+        #Mettre les balles au position original
         for obj in self.objects_show:
             self.display.delete(obj)
         del self.objects_show[:]
@@ -325,30 +396,40 @@ class HUD:
         self.load_objects()
         for obj in self.objects:
             self.objects_show.append(self.display.create_oval(obj.position[0]-obj.radius, obj.position[1]-obj.radius, obj.position[0]+obj.radius, obj.position[1]+obj.radius, fill=obj.color, outline="Black"))
-        #reset history
+        
+        #Supression de l'historique
         self.round_history = linked_list.LinkedList()
-        #reset labels
+
+        #Mettre à jour l'affichage de l'historique
         self.lab4.config(text="Tir : 0/0")
         self.lab5.config(text="Étape : 0/0")
-        #reset other elements
-        self.checkb_var.set(False)
+
+        #Réinitialisation des autres valeurs.
+        self.checkb_var.set(True)
         self.checkb_var2.set(False)
         self.plan_update()
         self.arrow_update()
+
+        #Réinitialisation de la position des bouttons et des textes si nécessaire
         if resize:
             self.root.geometry(f"{self.current_setting['canvas_dimension'][0]}x{self.current_setting['canvas_dimension'][0]}")
             self.display.config(width=self.current_setting['canvas_dimension'][0], height=int(self.current_setting['canvas_dimension'][1]))
             self.show()
 
+
     def configure(self):
+        #Lecture d'une autre configuration
         path = filedialog.askopenfilename()
+
+        #Le changement de configuration est annulé si aucun fichier n'a été donné
         if path != "":
             try:
                 current_dimension = self.current_setting["canvas_dimension"]
-                with open(path, "r") as f:
-                    self.current_setting = json.load(f)
+                with open(path, "r", encoding='utf-8') as fichier:
+                    self.current_setting = json.load(fichier)
                 self.reset(resize=current_dimension != self.current_setting["canvas_dimension"])
 
+            #Gestion des exceptions
             except pe.InMotion as e:
                 tk.messagebox.showerror("Erreur",e)
 
@@ -374,6 +455,7 @@ class HUD:
 
 
     def show(self):
+        #Placement des positions des bouttons
         x_middle = int(self.current_setting["canvas_dimension"][0]/2)
         y_canvas = self.current_setting["canvas_dimension"][1]
 
