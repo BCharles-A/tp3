@@ -428,8 +428,6 @@ class HUD:
         self.lab5.config(text="Étape : 0/0")
 
         #Réinitialisation des autres valeurs.
-        self.checkb_var.set(True)
-        self.checkb_var2.set(False)
         self.plan_update()
         self.arrow_update()
 
